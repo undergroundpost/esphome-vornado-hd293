@@ -1,0 +1,50 @@
+# ESPHome Secrets and Sensitive Files
+secrets.yaml
+secrets.yml
+
+# ESPHome Build and Cache Files
+.esphome/
+*.bin
+*.elf
+*.map
+
+# Python Virtual Environment
+venv/
+env/
+.env
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# System Files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Log Files
+*.log
+
+# Backup Files
+*.bak
+*.backup
+
+# Local Configuration Overrides
+config_local.yaml
+local_secrets.yaml
+
+# 3D Printing Files (if you want to version control separately)
+# *.stl
+# *.gcode
+
+# Documentation Build Files
+docs/_build/
+site/
+
+# Compiled Python Files
+__pycache__/
+*.py[cod]
+*$py.class
