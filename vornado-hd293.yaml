@@ -1,0 +1,183 @@
+# Vornado HD293 Smart Fan Controller
+# Hardware: ESP8266 D1 Mini controlling 3-speed fan via relays
+# Features: Manual button control, Home Assistant integration, 3D printed enclosure
+# Author: [Your Name]
+# Version: 1.0
+
+substitutions:
+  device_name: vornado-hd293
+  friendly_name: "Vornado HD293"
+  button_pin: GPIO4      # External push button
+  relay_low_pin: GPIO14  # Low speed relay
+  relay_med_pin: GPIO13  # Medium speed relay  
+  relay_high_pin: GPIO12 # High speed relay
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  comment: "Smart controller for Vornado HD293 fan with 3-speed control"
+
+esp8266:
+  board: d1_mini
+  early_pin_init: false
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+# Over-the-air updates
+ota:
+  password: !secret ota_password
+
+# WiFi configuration
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case WiFi connection fails
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: !secret fallback_password
+
+captive_portal:
+
+# Manual speed control button
+binary_sensor:
+  - platform: gpio
+    id: push_button
+    name: "${friendly_name} Button"
+    pin:
+      number: ${button_pin}
+      inverted: true
+      mode: INPUT_PULLUP
+    filters:
+      - delayed_on: 10ms  # Debounce
+      - delayed_off: 10ms
+    
+    on_multi_click:
+      - timing:
+          - ON for at most 0.49s
+          - OFF for at least 0.25s
+        then:
+          - logger.log: "Button pressed - cycling fan speed"
+          - fan.cycle_speed: vornado_fan
+
+# Relay switches for fan speed control
+switch:
+  - platform: gpio
+    id: relay_low
+    name: "${friendly_name} Low Speed Relay"
+    internal: true
+    pin: 
+      number: ${relay_low_pin}
+      inverted: true
+    icon: mdi:fan-speed-1
+    interlock: &interlock_group [relay_low, relay_med, relay_high]
+    interlock_wait_time: 300ms
+    
+  - platform: gpio
+    id: relay_med
+    name: "${friendly_name} Medium Speed Relay"
+    internal: true
+    pin: 
+      number: ${relay_med_pin}
+      inverted: true
+    icon: mdi:fan-speed-2
+    interlock: *interlock_group
+    interlock_wait_time: 300ms
+            
+  - platform: gpio
+    id: relay_high
+    name: "${friendly_name} High Speed Relay"
+    internal: true
+    pin: 
+      number: ${relay_high_pin}
+      inverted: true
+    icon: mdi:fan-speed-3
+    interlock: *interlock_group
+    interlock_wait_time: 300ms
+    
+  - platform: restart
+    name: "${friendly_name} Restart"
+    icon: mdi:restart
+
+# Template output to handle fan speed mapping
+output:
+  - platform: template
+    id: fan_output
+    type: float
+    write_action:
+      - if:
+          condition:
+            lambda: 'return state == 0.0;'
+          then:
+            # Turn off all relays (fan off)
+            - logger.log: "Fan turned off"
+            - switch.turn_off: relay_low
+            - switch.turn_off: relay_med
+            - switch.turn_off: relay_high
+      - if:
+          condition:
+            lambda: 'return state > 0.0 && state <= 0.33;'
+          then:
+            # Low speed (speed 1)
+            - logger.log: "Fan set to low speed"
+            - switch.turn_off: relay_med
+            - switch.turn_off: relay_high
+            - switch.turn_on: relay_low
+      - if:
+          condition:
+            lambda: 'return state > 0.33 && state <= 0.66;'
+          then:
+            # Medium speed (speed 2)
+            - logger.log: "Fan set to medium speed"
+            - switch.turn_off: relay_low
+            - switch.turn_off: relay_high
+            - switch.turn_on: relay_med
+      - if:
+          condition:
+            lambda: 'return state > 0.66;'
+          then:
+            # High speed (speed 3)
+            - logger.log: "Fan set to high speed"
+            - switch.turn_off: relay_low
+            - switch.turn_off: relay_med
+            - switch.turn_on: relay_high
+
+# Fan entity for Home Assistant
+fan:
+  - platform: speed
+    id: vornado_fan
+    output: fan_output
+    name: "${friendly_name}"
+    icon: mdi:fan
+    speed_count: 3
+    
+# Status LED (optional - uses onboard LED)
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true
+
+# Device sensors for monitoring
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} WiFi Signal"
+    update_interval: 60s
+    icon: mdi:wifi
+    
+  - platform: uptime
+    name: "${friendly_name} Uptime"
+    icon: mdi:clock-outline
+
+# Text sensors
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "${friendly_name} IP Address"
+      icon: mdi:ip-network
