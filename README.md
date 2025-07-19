@@ -60,7 +60,7 @@ Transform your Vornado HD293 fan into a smart, remotely controllable device with
 
 1. **Clone this repository**
    ```bash
-   git clone https://github.com/undergroundpost/vornado-hd293-smart-controller.git
+   git clone https://github.com/undergroundpost/esphome-vornado-hd293.git
    cd vornado-hd293-smart-controller
    ```
 
